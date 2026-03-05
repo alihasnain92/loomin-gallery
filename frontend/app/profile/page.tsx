@@ -3,6 +3,7 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 interface Prompt {
     id: number;
@@ -108,10 +109,12 @@ export default function ProfilePage() {
                                 className="bg-gray-900 border border-gray-800 rounded-xl overflow-hidden group"
                             >
                                 <div className="relative h-48 overflow-hidden bg-gray-950">
-                                    <img
+                                    <Image
                                         src={artwork.image_url}
                                         alt={artwork.title}
-                                        className="w-full h-full object-cover"
+                                        fill
+                                        className="object-cover"
+                                        sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
                                     />
                                     {/* The Delete Overlay */}
                                     <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">

@@ -2,6 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { motion } from "framer-motion";
+import Image from "next/image";
 
 // 1. Tell TypeScript what our database data looks like
 interface Prompt {
@@ -107,10 +108,13 @@ export default function Home() {
               className="relative group break-inside-avoid rounded-xl overflow-hidden bg-gray-900 border border-gray-800"
             >
               {/* The Image */}
-              <img
+              <Image
                 src={artwork.image_url}
                 alt={artwork.title}
+                width={600}
+                height={400}
                 className="w-full h-auto object-cover transition-transform duration-500 group-hover:scale-105"
+                sizes="(max-width: 640px) 100vw, (max-width: 768px) 50vw, (max-width: 1024px) 33vw, 25vw"
               />
 
               {/* The Hover Reveal Overlay */}
@@ -141,8 +145,8 @@ export default function Home() {
               onClick={handleLoadMore}
               disabled={isLoadingMore}
               className={`px-8 py-3 rounded-lg font-bold text-sm transition-colors duration-200 ${isLoadingMore
-                  ? "bg-gray-800 text-gray-500 cursor-not-allowed"
-                  : "bg-white text-black hover:bg-gray-200"
+                ? "bg-gray-800 text-gray-500 cursor-not-allowed"
+                : "bg-white text-black hover:bg-gray-200"
                 }`}
             >
               {isLoadingMore ? "Loading..." : "Load More"}
