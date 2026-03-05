@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import "./globals.css";
 import Navbar from "./components/Navbar";
+import ToastContainer from "./components/Toast";
 
 export const metadata: Metadata = {
   title: "AI Prompt Gallery",
@@ -16,6 +17,8 @@ export default function RootLayout({
     <html lang="en">
       <body className="bg-gray-950 text-white min-h-screen flex flex-col antialiased" suppressHydrationWarning>
         <Navbar />
+        {/* The global toast renderer */}
+        <ToastContainer />
         {/* This {children} is where your individual pages will render */}
         <div className="flex-grow">
           {children}

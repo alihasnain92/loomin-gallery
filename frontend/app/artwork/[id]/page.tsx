@@ -56,6 +56,10 @@ export default function ArtworkDetailPage() {
         navigator.clipboard.writeText(text);
         setCopied(true);
         setTimeout(() => setCopied(false), 2000);
+        // Add toast notification
+        import("../../components/Toast").then(({ showToast }) => {
+            showToast("Prompt copied to clipboard!", "success");
+        });
     };
 
     const handleLike = async () => {
@@ -170,8 +174,8 @@ export default function ArtworkDetailPage() {
                                     <button
                                         onClick={() => handleCopyPrompt(artwork.prompts[0].prompt_text)}
                                         className={`flex items-center gap-1.5 text-xs font-medium px-3 py-1.5 rounded-lg transition-all duration-200 ${copied
-                                                ? "bg-green-500/20 text-green-400 border border-green-500/30"
-                                                : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-700"
+                                            ? "bg-green-500/20 text-green-400 border border-green-500/30"
+                                            : "bg-gray-800 text-gray-400 hover:text-white hover:bg-gray-700 border border-gray-700"
                                             }`}
                                     >
                                         {copied ? (

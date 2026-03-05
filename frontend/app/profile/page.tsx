@@ -54,7 +54,7 @@ export default function ProfilePage() {
         fetchMyArtworks();
     }, [router]);
 
-    const handleDelete = async (id: number) => {
+    const handleDelete = async (artworkId: number) => {
         // Confirm before deleting
         if (!window.confirm("Are you sure you want to delete this artwork? This cannot be undone.")) {
             return;
@@ -63,7 +63,7 @@ export default function ProfilePage() {
         const token = localStorage.getItem("token");
 
         try {
-            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/artworks/${id}`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/artworks/${artworkId}`, {
                 method: "DELETE",
                 headers: {
                     "Authorization": `Bearer ${token}` // Show VIP pass to delete
@@ -72,14 +72,19 @@ export default function ProfilePage() {
 
             if (!response.ok) {
                 const errData = await response.json();
-                throw new Error(errData.detail || "Failed to delete");
+                throw new Error(errData.detail || "Failed to delete artwork");
             }
 
             // Remove the deleted image from the screen immediately for a snappy UI
-            setArtworks((prevArtworks) => prevArtworks.filter((art) => art.id !== id));
+            setArtworks((prev) => prev.filter((a) => a.id !== artworkId));
+
+            // Show toast notification
+            import("../components/Toast").then(({ showToast }) => {
+                showToast("Artwork successfully deleted.", "info");
+            });
 
         } catch (err: any) {
-            alert(err.message);
+            setError(err.message);
         }
     };
 
