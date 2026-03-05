@@ -9,7 +9,7 @@ from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
-from typing import List
+from typing import List, Optional
 
 # Load the hidden variables from the .env file
 load_dotenv()
@@ -30,8 +30,8 @@ app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:3000"], 
     allow_credentials=True,
-    allow_methods=["*"], # Allows all methods (GET, POST, DELETE, etc.)
-    allow_headers=["*"], # Allows all headers (like our JWT Authorization header)
+    allow_methods=["*"],
+    allow_headers=["*"],
 )
 
 # --- CLOUDINARY CONFIGURATION ---
@@ -58,7 +58,6 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         headers={"WWW-Authenticate": "Bearer"},
     )
     try:
-        # Decode the token to see who it belongs to
         payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
         username: str = payload.get("sub")
         if username is None:
@@ -71,6 +70,13 @@ def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(
         raise credentials_exception
     return user
 
+# Helper: Convert an artwork SQLAlchemy object to a dict with like_count and username
+def serialize_artwork(artwork):
+    data = schemas.ArtworkResponse.model_validate(artwork).model_dump()
+    data["like_count"] = len(artwork.likes)
+    data["username"] = artwork.owner.username
+    return data
+
 # --- ROUTES ---
 
 @app.post("/users/", response_model=schemas.UserResponse)
@@ -79,12 +85,10 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
-    # Also check for duplicate username
     db_user = db.query(models.User).filter(models.User.username == user.username).first()
     if db_user:
         raise HTTPException(status_code=400, detail="Username already taken")
     
-    # REAL security: Hash the password using bcrypt!
     hashed_password = auth.get_password_hash(user.password)
     
     new_user = models.User(
@@ -100,19 +104,16 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
 @app.get("/users/", response_model=list[schemas.UserResponse])
 def get_all_users(
     db: Session = Depends(get_db),
-    current_user: models.User = Depends(get_current_user) # Locked down!
+    current_user: models.User = Depends(get_current_user)
 ):
-    # Fetch all users from the database
     users = db.query(models.User).all()
     return users
 
 
 @app.post("/login")
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
-    # 1. Find the user by username (FastAPI's default form uses 'username' field)
     user = db.query(models.User).filter(models.User.username == form_data.username).first()
     
-    # 2. Verify user exists and password matches
     if not user or not auth.verify_password(form_data.password, user.password_hash):
         raise HTTPException(
             status_code=status.HTTP_401_UNAUTHORIZED,
@@ -120,7 +121,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
             headers={"WWW-Authenticate": "Bearer"},
         )
     
-    # 3. Generate the JWT Token
     access_token = auth.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
@@ -142,16 +142,14 @@ def create_artwork(
     db.commit()
     db.refresh(new_artwork)
 
-    # 2. Create and link any Prompts that were sent with it
     for p in artwork.prompts:
         new_prompt = models.Prompt(
             prompt_text=p.prompt_text,
             negative_prompt=p.negative_prompt,
-            artwork_id=new_artwork.id # Link it using the new ID
+            artwork_id=new_artwork.id
         )
         db.add(new_prompt)
     
-    # Commit the prompts to the database
     if artwork.prompts:
         db.commit()
         db.refresh(new_artwork)
@@ -159,34 +157,83 @@ def create_artwork(
     return new_artwork
 
 @app.get("/artworks/")
-def get_all_artworks(skip: int = 0, limit: int = 12, db: Session = Depends(get_db)):
-    # Get the total count of artworks in the database
-    total = db.query(models.Artwork).count()
+def get_all_artworks(
+    skip: int = 0, 
+    limit: int = 12, 
+    ai_model: Optional[str] = None,
+    db: Session = Depends(get_db)
+):
+    # Start building the query
+    query = db.query(models.Artwork)
     
-    # Fetch only the requested page of artworks, newest first
-    artworks = db.query(models.Artwork).order_by(models.Artwork.id.desc()).offset(skip).limit(limit).all()
+    # Filter by AI model if provided
+    if ai_model:
+        query = query.filter(models.Artwork.ai_model == ai_model)
     
-    # Serialize using the schema manually since we're returning a custom dict
-    serialized = [schemas.ArtworkResponse.model_validate(a).model_dump() for a in artworks]
+    # Get total count (after filtering)
+    total = query.count()
     
-    return {"artworks": serialized, "total": total}
+    # Fetch the paginated results, newest first
+    artworks = query.order_by(models.Artwork.id.desc()).offset(skip).limit(limit).all()
+    
+    return {"artworks": [serialize_artwork(a) for a in artworks], "total": total}
+
+# --- GET SINGLE ARTWORK (Detail Page) ---
+@app.get("/artworks/{artwork_id}")
+def get_artwork(artwork_id: int, db: Session = Depends(get_db)):
+    artwork = db.query(models.Artwork).filter(models.Artwork.id == artwork_id).first()
+    
+    if not artwork:
+        raise HTTPException(status_code=404, detail="Artwork not found")
+    
+    return serialize_artwork(artwork)
 
 # --- GET ONLY MY ARTWORKS ROUTE ---
 @app.get("/my-artworks/", response_model=list[schemas.ArtworkResponse])
 def read_my_artworks(
     db: Session = Depends(get_db), 
-    current_user: models.User = Depends(get_current_user) # Require VIP pass
+    current_user: models.User = Depends(get_current_user)
 ):
-    # Filter the database to only return art where the user_id matches the logged-in user
     artworks = db.query(models.Artwork).filter(models.Artwork.user_id == current_user.id).all()
     return artworks
+
+# --- LIKE/UNLIKE TOGGLE ---
+@app.post("/artworks/{artwork_id}/like")
+def toggle_like(
+    artwork_id: int,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # 1. Make sure the artwork exists
+    artwork = db.query(models.Artwork).filter(models.Artwork.id == artwork_id).first()
+    if not artwork:
+        raise HTTPException(status_code=404, detail="Artwork not found")
+    
+    # 2. Check if the user already liked it
+    existing_like = db.query(models.Like).filter(
+        models.Like.user_id == current_user.id,
+        models.Like.artwork_id == artwork_id
+    ).first()
+    
+    if existing_like:
+        # Already liked → unlike it
+        db.delete(existing_like)
+        db.commit()
+        like_count = db.query(models.Like).filter(models.Like.artwork_id == artwork_id).count()
+        return {"liked": False, "like_count": like_count}
+    else:
+        # Not liked yet → like it
+        new_like = models.Like(user_id=current_user.id, artwork_id=artwork_id)
+        db.add(new_like)
+        db.commit()
+        like_count = db.query(models.Like).filter(models.Like.artwork_id == artwork_id).count()
+        return {"liked": True, "like_count": like_count}
 
 @app.post("/upload/")
 async def upload_image(
     file: UploadFile = File(...), 
-    current_user: models.User = Depends(get_current_user) # Locked down!
+    current_user: models.User = Depends(get_current_user)
 ):
-    # Security: Validate the file is actually an image before uploading
     ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
     if file.content_type not in ALLOWED_TYPES:
         raise HTTPException(
@@ -195,14 +242,9 @@ async def upload_image(
         )
 
     try:
-        # Upload the file directly to Cloudinary
         result = cloudinary.uploader.upload(file.file)
-        
-        # Cloudinary sends back a giant dictionary. We just want the secure live URL.
         image_url = result.get("secure_url")
-        
         return {"url": image_url, "message": "Successfully uploaded to the cloud!"}
-    
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
 
@@ -212,19 +254,16 @@ async def upload_image(
 def delete_artwork(
     artwork_id: int, 
     db: Session = Depends(get_db), 
-    current_user: models.User = Depends(get_current_user) # Locked down!
+    current_user: models.User = Depends(get_current_user)
 ):
-    # 1. Find the artwork
     artwork = db.query(models.Artwork).filter(models.Artwork.id == artwork_id).first()
     
     if not artwork:
         raise HTTPException(status_code=404, detail="Artwork not found")
         
-    # 2. Security Check: Does this image actually belong to the logged-in user?
     if artwork.user_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized to delete this artwork")
         
-    # 3. Delete it and save the changes
     db.delete(artwork)
     db.commit()
     

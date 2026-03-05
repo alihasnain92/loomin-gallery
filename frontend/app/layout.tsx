@@ -14,7 +14,7 @@ export default function RootLayout({
 }>) {
   return (
     <html lang="en">
-      <body className="bg-gray-950 text-white min-h-screen flex flex-col antialiased">
+      <body className="bg-gray-950 text-white min-h-screen flex flex-col antialiased" suppressHydrationWarning>
         <Navbar />
         {/* This {children} is where your individual pages will render */}
         <div className="flex-grow">

@@ -46,7 +46,9 @@ class ArtworkResponse(BaseModel):
     image_url: str
     ai_model: str
     created_at: datetime
-    prompts: List[PromptResponse] = [] # When we fetch an artwork, it will include its prompts
+    prompts: List[PromptResponse] = []
+    like_count: int = 0        # Total number of likes
+    username: str = ""         # Uploader's username
 
     class Config:
         from_attributes = True

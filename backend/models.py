@@ -1,5 +1,5 @@
 from sqlalchemy.orm import Mapped, mapped_column, relationship
-from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, Text, DateTime, ForeignKey, UniqueConstraint
 from database import Base
 from datetime import datetime, timezone
 from typing import List, Optional
@@ -15,6 +15,8 @@ class User(Base):
 
     # A user can have many artworks
     artworks: Mapped[List["Artwork"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
+    # A user can like many artworks
+    likes: Mapped[List["Like"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
 
 class Artwork(Base):
@@ -31,6 +33,8 @@ class Artwork(Base):
     owner: Mapped["User"] = relationship(back_populates="artworks")
     # Links to the Prompt(s)
     prompts: Mapped[List["Prompt"]] = relationship(back_populates="artwork", cascade="all, delete-orphan")
+    # Links to Likes
+    likes: Mapped[List["Like"]] = relationship(back_populates="artwork", cascade="all, delete-orphan")
 
 
 class Prompt(Base):
@@ -43,3 +47,18 @@ class Prompt(Base):
 
     # Links back to the Artwork
     artwork: Mapped["Artwork"] = relationship(back_populates="prompts")
+
+
+class Like(Base):
+    __tablename__ = "likes"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    user_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    artwork_id: Mapped[int] = mapped_column(ForeignKey("artworks.id"))
+
+    # Prevent duplicate likes: one user can only like an artwork once
+    __table_args__ = (UniqueConstraint("user_id", "artwork_id", name="unique_like"),)
+
+    # Relationships
+    user: Mapped["User"] = relationship(back_populates="likes")
+    artwork: Mapped["Artwork"] = relationship(back_populates="likes")

@@ -16,6 +16,7 @@ export default function UploadPage() {
 
     // Form State
     const [file, setFile] = useState<File | null>(null);
+    const [preview, setPreview] = useState<string | null>(null);
     const [title, setTitle] = useState("");
     const [aiModel, setAiModel] = useState("Midjourney");
     const [promptText, setPromptText] = useState("");
@@ -27,9 +28,26 @@ export default function UploadPage() {
 
     const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
         if (e.target.files && e.target.files[0]) {
-            setFile(e.target.files[0]);
+            const selected = e.target.files[0];
+            setFile(selected);
+            // Create a preview URL for the selected image
+            if (preview) URL.revokeObjectURL(preview);
+            setPreview(URL.createObjectURL(selected));
         }
     };
+
+    const removePreview = () => {
+        setFile(null);
+        if (preview) URL.revokeObjectURL(preview);
+        setPreview(null);
+    };
+
+    // Clean up preview URL when component unmounts
+    useEffect(() => {
+        return () => {
+            if (preview) URL.revokeObjectURL(preview);
+        };
+    }, [preview]);
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
@@ -71,7 +89,6 @@ export default function UploadPage() {
             const imageFormData = new FormData();
             imageFormData.append("file", file);
 
-            // Using our dynamic environment variable!
             const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/`, {
                 method: "POST",
                 headers: {
@@ -98,7 +115,6 @@ export default function UploadPage() {
                 ]
             };
 
-            // Using our dynamic environment variable again!
             const dbRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/artworks/`, {
                 method: "POST",
                 headers: {
@@ -132,6 +148,24 @@ export default function UploadPage() {
                 )}
 
                 <form onSubmit={handleSubmit} className="space-y-6">
+                    {/* Image Preview */}
+                    {preview && (
+                        <div className="relative rounded-xl overflow-hidden border border-gray-700 bg-gray-950">
+                            <img
+                                src={preview}
+                                alt="Preview"
+                                className="w-full max-h-64 object-contain"
+                            />
+                            <button
+                                type="button"
+                                onClick={removePreview}
+                                className="absolute top-3 right-3 bg-black/70 hover:bg-red-600 text-white rounded-full w-8 h-8 flex items-center justify-center transition-colors"
+                            >
+                                ✕
+                            </button>
+                        </div>
+                    )}
+
                     {/* File Upload */}
                     <div>
                         <label className="block text-sm font-medium text-gray-400 mb-2">Image File</label>
