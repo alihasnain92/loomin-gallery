@@ -30,8 +30,8 @@ This project demonstrates a complete, secure end-to-end architecture, from a res
 
 ### 1. Clone the repository
 \`\`\`bash
-git clone https://github.com/YourUsername/your-repo-name.git
-cd your-repo-name
+git clone https://github.com/alihasnain92/loomin-gallery.git
+cd loomin-gallery
 \`\`\`
 
 ### 2. Set up the Backend
@@ -41,7 +41,14 @@ python -m venv venv
 source venv/Scripts/activate  # On Windows
 pip install -r requirements.txt
 \`\`\`
-*Note: You will need to create a `.env` file in the backend directory with your own `CLOUDINARY_CLOUD_NAME`, `CLOUDINARY_API_KEY`, and `CLOUDINARY_API_SECRET`.*
+
+Create a `.env` file in the `backend/` directory with the following keys:
+\`\`\`env
+JWT_SECRET_KEY=your-secret-key-here
+CLOUDINARY_CLOUD_NAME=your-cloud-name
+CLOUDINARY_API_KEY=your-api-key
+CLOUDINARY_API_SECRET=your-api-secret
+\`\`\`
 
 Run the server:
 \`\`\`bash
@@ -53,6 +60,15 @@ Open a new terminal and navigate to the frontend directory:
 \`\`\`bash
 cd frontend
 npm install
+\`\`\`
+
+Create a `.env.local` file in the `frontend/` directory:
+\`\`\`env
+NEXT_PUBLIC_API_URL=http://127.0.0.1:8000
+\`\`\`
+
+Start the dev server:
+\`\`\`bash
 npm run dev
 \`\`\`
 The application will be running at `http://localhost:3000`.

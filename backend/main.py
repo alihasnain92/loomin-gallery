@@ -58,6 +58,11 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     if db_user:
         raise HTTPException(status_code=400, detail="Email already registered")
     
+    # Also check for duplicate username
+    db_user = db.query(models.User).filter(models.User.username == user.username).first()
+    if db_user:
+        raise HTTPException(status_code=400, detail="Username already taken")
+    
     # REAL security: Hash the password using bcrypt!
     hashed_password = auth.get_password_hash(user.password)
     
@@ -157,7 +162,7 @@ def get_all_artworks(db: Session = Depends(get_db)):
     return artworks
 
 # --- GET ONLY MY ARTWORKS ROUTE ---
-@app.get("/my-artworks/")
+@app.get("/my-artworks/", response_model=list[schemas.ArtworkResponse])
 def read_my_artworks(
     db: Session = Depends(get_db), 
     current_user: models.User = Depends(get_current_user) # Require VIP pass
