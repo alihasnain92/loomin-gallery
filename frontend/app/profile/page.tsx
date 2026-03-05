@@ -33,7 +33,12 @@ export default function ProfilePage() {
 
             try {
                 // Fetch the artworks
-                const response = await fetch("http://127.0.0.1:8000/artworks/");
+                // Update the URL and add the Authorization header!
+                const response = await fetch("http://127.0.0.1:8000/my-artworks/", {
+                    headers: {
+                        "Authorization": `Bearer ${token}` // Show the VIP pass to get the private data
+                    }
+                });
                 if (!response.ok) throw new Error("Failed to fetch artworks");
 
                 const data = await response.json();
@@ -121,7 +126,7 @@ export default function ProfilePage() {
 
                                 <div className="p-4">
                                     <h3 className="font-bold text-white truncate">{artwork.title}</h3>
-                                    {artwork.prompts.length > 0 && (
+                                    {artwork.prompts && artwork.prompts.length > 0 && (
                                         <p className="text-sm text-gray-500 truncate mt-1">
                                             {artwork.prompts[0].prompt_text}
                                         </p>

@@ -9,6 +9,7 @@ from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
 import os
 from dotenv import load_dotenv
+from typing import List
 
 # Load the hidden variables from the .env file
 load_dotenv()
@@ -153,6 +154,16 @@ def create_artwork(
 def get_all_artworks(db: Session = Depends(get_db)):
     # Fetch all artworks, and SQLAlchemy will automatically fetch the linked prompts!
     artworks = db.query(models.Artwork).all()
+    return artworks
+
+# --- GET ONLY MY ARTWORKS ROUTE ---
+@app.get("/my-artworks/")
+def read_my_artworks(
+    db: Session = Depends(get_db), 
+    current_user: models.User = Depends(get_current_user) # Require VIP pass
+):
+    # Filter the database to only return art where the user_id matches the logged-in user
+    artworks = db.query(models.Artwork).filter(models.Artwork.user_id == current_user.id).all()
     return artworks
 
 @app.post("/upload/")

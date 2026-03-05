@@ -2,6 +2,10 @@ from datetime import datetime, timedelta
 from jose import jwt
 from passlib.context import CryptContext
 import os
+from dotenv import load_dotenv
+
+# 1. LOAD THE HIDDEN FILE FIRST!
+load_dotenv()
 
 # In a real production app, this goes in a hidden .env file!
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
