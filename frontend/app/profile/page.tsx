@@ -34,7 +34,7 @@ export default function ProfilePage() {
             try {
                 // Fetch the artworks
                 // Update the URL and add the Authorization header!
-                const response = await fetch("http://127.0.0.1:8000/my-artworks/", {
+                const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/my-artworks/`, {
                     headers: {
                         "Authorization": `Bearer ${token}` // Show the VIP pass to get the private data
                     }
@@ -62,7 +62,7 @@ export default function ProfilePage() {
         const token = localStorage.getItem("token");
 
         try {
-            const response = await fetch(`http://127.0.0.1:8000/artworks/${id}`, {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/artworks/${id}`, {
                 method: "DELETE",
                 headers: {
                     "Authorization": `Bearer ${token}` // Show VIP pass to delete

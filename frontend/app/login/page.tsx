@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Link from "next/link";
 
 export default function LoginPage() {
     // 1. State to hold the user's typing and any error messages
@@ -24,7 +25,7 @@ export default function LoginPage() {
             formData.append("password", password);
 
             // 4. The Bridge: Talking to your Python backend
-            const response = await fetch("http://127.0.0.1:8000/login", {
+            const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/login`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/x-www-form-urlencoded",
@@ -54,6 +55,13 @@ export default function LoginPage() {
         <main className="min-h-screen bg-gray-950 flex flex-col justify-center items-center p-4">
             <div className="max-w-md w-full bg-gray-900 border border-gray-800 rounded-xl p-8 shadow-2xl">
                 <h2 className="text-3xl font-bold text-white mb-6 text-center">Welcome Back</h2>
+
+                <p className="mt-2 text-center text-sm text-gray-400">
+                    Don't have an account?{" "}
+                    <Link href="/register" className="font-medium text-blue-500 hover:text-blue-400 transition-colors">
+                        Sign up here
+                    </Link>
+                </p>
 
                 {/* If there is an error, show this red alert box */}
                 {error && (
