@@ -50,6 +50,27 @@ def get_db():
     finally:
         db.close()
 
+# This acts as our security bouncer. We will attach it to any route we want to lock down.
+def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
+    credentials_exception = HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Could not validate credentials",
+        headers={"WWW-Authenticate": "Bearer"},
+    )
+    try:
+        # Decode the token to see who it belongs to
+        payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            raise credentials_exception
+    except auth.jwt.JWTError:
+        raise credentials_exception
+        
+    user = db.query(models.User).filter(models.User.username == username).first()
+    if user is None:
+        raise credentials_exception
+    return user
+
 # --- ROUTES ---
 
 @app.post("/users/", response_model=schemas.UserResponse)
@@ -103,27 +124,6 @@ def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depend
     access_token = auth.create_access_token(data={"sub": user.username})
     return {"access_token": access_token, "token_type": "bearer"}
 
-# This acts as our security bouncer. We will attach it to any route we want to lock down.
-def get_current_user(token: str = Depends(oauth2_scheme), db: Session = Depends(get_db)):
-    credentials_exception = HTTPException(
-        status_code=status.HTTP_401_UNAUTHORIZED,
-        detail="Could not validate credentials",
-        headers={"WWW-Authenticate": "Bearer"},
-    )
-    try:
-        # Decode the token to see who it belongs to
-        payload = auth.jwt.decode(token, auth.SECRET_KEY, algorithms=[auth.ALGORITHM])
-        username: str = payload.get("sub")
-        if username is None:
-            raise credentials_exception
-    except auth.jwt.JWTError:
-        raise credentials_exception
-        
-    user = db.query(models.User).filter(models.User.username == username).first()
-    if user is None:
-        raise credentials_exception
-    return user
-
 
 # --- ARTWORK & PROMPT ROUTES ---
 @app.post("/artworks/", response_model=schemas.ArtworkResponse)
@@ -158,11 +158,18 @@ def create_artwork(
 
     return new_artwork
 
-@app.get("/artworks/", response_model=list[schemas.ArtworkResponse])
-def get_all_artworks(db: Session = Depends(get_db)):
-    # Fetch all artworks, and SQLAlchemy will automatically fetch the linked prompts!
-    artworks = db.query(models.Artwork).all()
-    return artworks
+@app.get("/artworks/")
+def get_all_artworks(skip: int = 0, limit: int = 12, db: Session = Depends(get_db)):
+    # Get the total count of artworks in the database
+    total = db.query(models.Artwork).count()
+    
+    # Fetch only the requested page of artworks, newest first
+    artworks = db.query(models.Artwork).order_by(models.Artwork.id.desc()).offset(skip).limit(limit).all()
+    
+    # Serialize using the schema manually since we're returning a custom dict
+    serialized = [schemas.ArtworkResponse.model_validate(a).model_dump() for a in artworks]
+    
+    return {"artworks": serialized, "total": total}
 
 # --- GET ONLY MY ARTWORKS ROUTE ---
 @app.get("/my-artworks/", response_model=list[schemas.ArtworkResponse])
