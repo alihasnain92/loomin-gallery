@@ -1,0 +1,52 @@
+from pydantic import BaseModel, EmailStr
+from datetime import datetime
+from typing import List, Optional
+
+# 1. The data we expect FROM the frontend when a user registers
+class UserCreate(BaseModel):
+    username: str
+    email: EmailStr
+    password: str
+
+# 2. The data we send BACK to the frontend (Notice: no passwords!)
+class UserResponse(BaseModel):
+    id: int
+    username: str
+    email: str
+    created_at: datetime
+
+    class Config:
+        from_attributes = True # This tells Pydantic to read your SQLAlchemy models
+
+# --- PROMPT SCHEMAS ---
+class PromptCreate(BaseModel):
+    prompt_text: str
+    negative_prompt: Optional[str] = None
+
+class PromptResponse(BaseModel):
+    id: int
+    artwork_id: int
+    prompt_text: str
+    negative_prompt: Optional[str] = None
+
+    class Config:
+        from_attributes = True
+
+# --- ARTWORK SCHEMAS ---
+class ArtworkCreate(BaseModel):
+    title: str
+    image_url: str
+    ai_model: str
+    prompts: List[PromptCreate] = []
+
+class ArtworkResponse(BaseModel):
+    id: int
+    user_id: int
+    title: str
+    image_url: str
+    ai_model: str
+    created_at: datetime
+    prompts: List[PromptResponse] = [] # When we fetch an artwork, it will include its prompts
+
+    class Config:
+        from_attributes = True
