@@ -7,8 +7,10 @@ from datetime import datetime, timezone, timedelta
 # 1. LOAD THE HIDDEN FILE FIRST!
 load_dotenv()
 
-# Grab the secret key from the .env file
+# Grab the secret key from the .env file (REQUIRED — app won't start without it)
 SECRET_KEY = os.getenv("JWT_SECRET_KEY")
+if not SECRET_KEY:
+    raise ValueError("FATAL: JWT_SECRET_KEY is not set in the .env file! The server cannot start without it.")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 

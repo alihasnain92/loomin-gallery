@@ -1,10 +1,18 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
 
 export default function UploadPage() {
     const router = useRouter();
+
+    // Redirect to login if not authenticated
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        if (!token) {
+            router.push("/login");
+        }
+    }, [router]);
 
     // Form State
     const [file, setFile] = useState<File | null>(null);

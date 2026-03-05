@@ -77,7 +77,10 @@ def create_user(user: schemas.UserCreate, db: Session = Depends(get_db)):
     return new_user
 
 @app.get("/users/", response_model=list[schemas.UserResponse])
-def get_all_users(db: Session = Depends(get_db)):
+def get_all_users(
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user) # Locked down!
+):
     # Fetch all users from the database
     users = db.query(models.User).all()
     return users
@@ -176,6 +179,14 @@ async def upload_image(
     file: UploadFile = File(...), 
     current_user: models.User = Depends(get_current_user) # Locked down!
 ):
+    # Security: Validate the file is actually an image before uploading
+    ALLOWED_TYPES = ["image/jpeg", "image/png", "image/gif", "image/webp"]
+    if file.content_type not in ALLOWED_TYPES:
+        raise HTTPException(
+            status_code=400, 
+            detail=f"Invalid file type '{file.content_type}'. Only JPEG, PNG, GIF, and WebP images are allowed."
+        )
+
     try:
         # Upload the file directly to Cloudinary
         result = cloudinary.uploader.upload(file.file)
