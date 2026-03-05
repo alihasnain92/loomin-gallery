@@ -1,9 +1,10 @@
 from datetime import datetime, timedelta
 from jose import jwt
 from passlib.context import CryptContext
+import os
 
 # In a real production app, this goes in a hidden .env file!
-SECRET_KEY = "super-secret-key-for-portfolio-do-not-share" 
+SECRET_KEY = os.getenv("JWT_SECRET_KEY")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 60
 
