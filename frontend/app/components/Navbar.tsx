@@ -8,18 +8,31 @@ export default function Navbar() {
     const router = useRouter();
     const [isLoggedIn, setIsLoggedIn] = useState(false);
 
-    // When the navbar loads, check if the token exists in local storage
+    // Upgraded useEffect: Checks on load AND listens for custom events
     useEffect(() => {
-        const token = localStorage.getItem("token");
-        if (token) {
-            setIsLoggedIn(true);
-        }
+        // 1. Define the check function
+        const checkAuth = () => {
+            const token = localStorage.getItem("token");
+            setIsLoggedIn(!!token); // !! converts the string/null into a strict true/false boolean
+        };
+
+        // 2. Run it immediately on component mount
+        checkAuth();
+
+        // 3. Start listening for the "auth-change" flare
+        window.addEventListener("auth-change", checkAuth);
+
+        // 4. Clean up the listener so we don't cause memory leaks
+        return () => {
+            window.removeEventListener("auth-change", checkAuth);
+        };
     }, []);
 
     // The logout function
     const handleLogout = () => {
         localStorage.removeItem("token"); // Destroy the key!
-        setIsLoggedIn(false);
+        setIsLoggedIn(false); // Immediately update local state
+        window.dispatchEvent(new Event("auth-change")); // Fire the flare for the rest of the app!
         router.push("/login"); // Kick them back to the login screen
     };
 

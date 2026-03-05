@@ -42,6 +42,9 @@ export default function LoginPage() {
             // 5. Success! Save the JWT token to the browser's local storage
             localStorage.setItem("token", data.access_token);
 
+            // FIRE THE FLARE! Tell the Navbar to update immediately
+            window.dispatchEvent(new Event("auth-change"));
+
             // 6. Redirect the user back to the main gallery page
             router.push("/");
 

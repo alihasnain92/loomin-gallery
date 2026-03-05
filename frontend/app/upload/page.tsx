@@ -25,30 +25,49 @@ export default function UploadPage() {
 
     const handleSubmit = async (e: React.FormEvent) => {
         e.preventDefault();
+        setError(""); // Clear previous errors
+
+        // --- 1. THE DEFENSIVE GUARDRAILS ---
+
+        // Check if a file was actually selected
         if (!file) {
-            setError("Please select an image first.");
+            setError("Please select an image to upload.");
             return;
         }
 
-        setIsUploading(true);
-        setError("");
+        // Enforce a 5MB file size limit (5 * 1024 * 1024 bytes)
+        const MAX_FILE_SIZE = 5 * 1024 * 1024;
+        if (file.size > MAX_FILE_SIZE) {
+            setError("Image is too large. Please upload a file smaller than 5MB.");
+            return;
+        }
 
+        // Enforce a prompt length limit
+        if (promptText.length > 500) {
+            setError("Prompt is too long. Please keep it under 500 characters.");
+            return;
+        }
+
+        // --- 2. GRAB THE VIP PASS ---
         const token = localStorage.getItem("token");
         if (!token) {
-            setError("You must be logged in to upload.");
-            setIsUploading(false);
+            setError("You must be logged in to upload artwork.");
             return;
         }
+
+        // --- 3. PROCEED WITH UPLOAD ---
+        setIsUploading(true);
 
         try {
             // --- STEP 1: Upload the Image to Cloudinary via FastAPI ---
             const imageFormData = new FormData();
             imageFormData.append("file", file);
 
-            const uploadRes = await fetch("http://127.0.0.1:8000/upload/", {
+            // Using our dynamic environment variable!
+            const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/`, {
                 method: "POST",
                 headers: {
-                    "Authorization": `Bearer ${token}` // Show our VIP pass
+                    "Authorization": `Bearer ${token}`
                 },
                 body: imageFormData,
             });
@@ -56,7 +75,7 @@ export default function UploadPage() {
             if (!uploadRes.ok) throw new Error("Image upload failed");
 
             const uploadData = await uploadRes.json();
-            const imageUrl = uploadData.url; // We got the Cloudinary URL!
+            const imageUrl = uploadData.url;
 
             // --- STEP 2: Save everything to the Database ---
             const artworkData = {
@@ -71,18 +90,19 @@ export default function UploadPage() {
                 ]
             };
 
-            const dbRes = await fetch("http://127.0.0.1:8000/artworks/", {
+            // Using our dynamic environment variable again!
+            const dbRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/artworks/`, {
                 method: "POST",
                 headers: {
                     "Content-Type": "application/json",
-                    "Authorization": `Bearer ${token}` // VIP pass again
+                    "Authorization": `Bearer ${token}`
                 },
                 body: JSON.stringify(artworkData),
             });
 
             if (!dbRes.ok) throw new Error("Failed to save to database");
 
-            // Success! Send them back to the gallery to see their new art
+            // Success! Send them back to the gallery
             router.push("/");
 
         } catch (err: any) {
@@ -171,8 +191,8 @@ export default function UploadPage() {
                         type="submit"
                         disabled={isUploading}
                         className={`w-full font-bold py-4 rounded-lg transition-colors duration-200 ${isUploading
-                                ? "bg-gray-700 text-gray-400 cursor-not-allowed"
-                                : "bg-white text-black hover:bg-gray-200"
+                            ? "bg-gray-700 text-gray-400 cursor-not-allowed"
+                            : "bg-white text-black hover:bg-gray-200"
                             }`}
                     >
                         {isUploading ? "Uploading to Cloud..." : "Publish to Gallery"}

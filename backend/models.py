@@ -1,7 +1,8 @@
 from sqlalchemy import ForeignKey, String, Text, DateTime
 from sqlalchemy.orm import Mapped, mapped_column, relationship
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from database import Base
-import datetime
+from datetime import datetime, timezone
 from typing import List, Optional
 
 class User(Base):
@@ -11,7 +12,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String)
-    created_at = Column(DateTime, default=lambda: datetime.now(datetime.UTC))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # A user can have many artworks
     artworks: Mapped[List["Artwork"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
@@ -25,7 +26,7 @@ class Artwork(Base):
     image_url: Mapped[str] = mapped_column(String)
     title: Mapped[str] = mapped_column(String)
     ai_model: Mapped[str] = mapped_column(String) # e.g., "Midjourney" or "Gemini"
-    created_at = Column(DateTime, default=lambda: datetime.now(datetime.UTC))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
 
     # Links back to the User
     owner: Mapped["User"] = relationship(back_populates="artworks")
