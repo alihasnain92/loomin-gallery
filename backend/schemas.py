@@ -18,6 +18,17 @@ class UserResponse(BaseModel):
     class Config:
         from_attributes = True # This tells Pydantic to read your SQLAlchemy models
 
+class UserProfileResponse(BaseModel):
+    id: int
+    username: str
+    created_at: datetime
+    followers_count: int = 0
+    following_count: int = 0
+    is_followed_by_me: bool = False
+
+    class Config:
+        from_attributes = True
+
 # --- PROMPT SCHEMAS ---
 class PromptCreate(BaseModel):
     prompt_text: str
@@ -36,6 +47,11 @@ class PromptResponse(BaseModel):
 class ArtworkCreate(BaseModel):
     title: str
     image_url: str
+    ai_model: str
+    prompts: List[PromptCreate] = []
+
+class ArtworkUpdate(BaseModel):
+    title: str
     ai_model: str
     prompts: List[PromptCreate] = []
 

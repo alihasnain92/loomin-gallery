@@ -18,6 +18,34 @@ class User(Base):
     # A user can like many artworks
     likes: Mapped[List["Like"]] = relationship(back_populates="user", cascade="all, delete-orphan")
 
+    # Follow System (using string names to avoid circular imports immediately)
+    followers = relationship(
+        "Follow", 
+        foreign_keys="[Follow.followed_id]", 
+        back_populates="followed", 
+        cascade="all, delete-orphan"
+    )
+    following = relationship(
+        "Follow", 
+        foreign_keys="[Follow.follower_id]", 
+        back_populates="follower", 
+        cascade="all, delete-orphan"
+    )
+
+class Follow(Base):
+    __tablename__ = "follows"
+
+    id: Mapped[int] = mapped_column(primary_key=True, index=True)
+    follower_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    followed_id: Mapped[int] = mapped_column(ForeignKey("users.id"))
+    created_at = Column(DateTime, default=lambda: datetime.now(timezone.utc))
+
+    follower: Mapped["User"] = relationship("User", foreign_keys=[follower_id], back_populates="following")
+    followed: Mapped["User"] = relationship("User", foreign_keys=[followed_id], back_populates="followers")
+
+    __table_args__ = (
+        UniqueConstraint("follower_id", "followed_id", name="_user_follow_uc"),
+    )
 
 class Artwork(Base):
     __tablename__ = "artworks"

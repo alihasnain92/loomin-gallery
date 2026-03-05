@@ -2,6 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useRouter } from "next/navigation";
+import imageCompression from "browser-image-compression";
 
 export default function UploadPage() {
     const router = useRouter();
@@ -85,9 +86,21 @@ export default function UploadPage() {
         setIsUploading(true);
 
         try {
-            // --- STEP 1: Upload the Image to Cloudinary via FastAPI ---
+            // --- STEP 1: Compress the image on the client side ---
+            // Even if the user uploads a 4MB 4K image, this will shrink it down
+            // to a web-optimized 1920px image, saving Cloudinary bandwidth!
+            const compressionOptions = {
+                maxSizeMB: 1,          // Aim for under 1MB
+                maxWidthOrHeight: 1920, // Don't allow larger than 1080p-ish dimensions
+                useWebWorker: true,
+            };
+
+            const compressedFile = await imageCompression(file, compressionOptions);
+
+            // --- STEP 2: Upload the Image to Cloudinary via FastAPI ---
             const imageFormData = new FormData();
-            imageFormData.append("file", file);
+            // Important: passing the compressedFile instead of the original file
+            imageFormData.append("file", compressedFile, file.name);
 
             const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/upload/`, {
                 method: "POST",

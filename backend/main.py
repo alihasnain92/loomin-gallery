@@ -4,6 +4,7 @@ from fastapi import File, UploadFile
 from fastapi import FastAPI, Depends, HTTPException, status
 from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
 from sqlalchemy.orm import Session
+from sqlalchemy import or_
 import models, schemas, auth
 from database import engine, SessionLocal
 from fastapi.middleware.cors import CORSMiddleware
@@ -161,14 +162,25 @@ def get_all_artworks(
     skip: int = 0, 
     limit: int = 12, 
     ai_model: Optional[str] = None,
+    search: Optional[str] = None,
     db: Session = Depends(get_db)
 ):
-    # Start building the query
-    query = db.query(models.Artwork)
+    # Start building the query with a join to access prompts for searching
+    query = db.query(models.Artwork).outerjoin(models.Prompt)
     
     # Filter by AI model if provided
     if ai_model:
         query = query.filter(models.Artwork.ai_model == ai_model)
+        
+    # Filter by search string if provided
+    if search:
+        search_filter = f"%{search}%"
+        query = query.filter(
+            or_(
+                models.Artwork.title.ilike(search_filter),
+                models.Prompt.prompt_text.ilike(search_filter)
+            )
+        )
     
     # Get total count (after filtering)
     total = query.count()
@@ -248,6 +260,45 @@ async def upload_image(
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Image upload failed: {str(e)}")
 
+# --- UPDATE ARTWORK ROUTE ---
+@app.put("/artworks/{artwork_id}", response_model=schemas.ArtworkResponse)
+def update_artwork(
+    artwork_id: int,
+    artwork_data: schemas.ArtworkUpdate,
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    # 1. Fetch existing artwork
+    artwork = db.query(models.Artwork).filter(models.Artwork.id == artwork_id).first()
+    
+    # 2. Verify existence and ownership
+    if not artwork:
+        raise HTTPException(status_code=404, detail="Artwork not found")
+        
+    if artwork.user_id != current_user.id:
+        raise HTTPException(status_code=403, detail="Not authorized to edit this artwork")
+        
+    # 3. Update the artwork main fields
+    artwork.title = artwork_data.title
+    artwork.ai_model = artwork_data.ai_model
+    
+    # 4. Update the prompts
+    # For simplicity in this app, we drop old prompts and insert the updated one(s)
+    db.query(models.Prompt).filter(models.Prompt.artwork_id == artwork_id).delete()
+    
+    for p_data in artwork_data.prompts:
+        new_prompt = models.Prompt(
+            prompt_text=p_data.prompt_text,
+            negative_prompt=p_data.negative_prompt,
+            artwork_id=artwork.id 
+        )
+        db.add(new_prompt)
+        
+    db.commit()
+    db.refresh(artwork)
+    
+    return serialize_artwork(artwork)
+
 
 # --- DELETE ARTWORK ROUTE ---
 @app.delete("/artworks/{artwork_id}")
@@ -268,3 +319,97 @@ def delete_artwork(
     db.commit()
     
     return {"message": "Artwork successfully deleted"}
+
+# ==========================================
+# PUBLIC PROFILES & FOLLOW SYSTEM
+# ==========================================
+
+from fastapi.security import OAuth2PasswordBearer
+from jose import jwt, JWTError
+from auth import SECRET_KEY, ALGORITHM
+
+# This optional dependency doesn't throw an error if not logged in
+# Instead, it just returns None. Perfect for public pages!
+oauth2_scheme_optional = OAuth2PasswordBearer(tokenUrl="login", auto_error=False)
+
+def get_current_user_optional(token: str = Depends(oauth2_scheme_optional), db: Session = Depends(get_db)):
+    if not token:
+        return None
+    try:
+        payload = jwt.decode(token, SECRET_KEY, algorithms=[ALGORITHM])
+        username: str = payload.get("sub")
+        if username is None:
+            return None
+    except JWTError:
+        return None
+    user = db.query(models.User).filter(models.User.username == username).first()
+    return user
+
+@app.get("/users/{username}/profile", response_model=schemas.UserProfileResponse)
+def get_user_profile(
+    username: str, 
+    db: Session = Depends(get_db),
+    current_user: Optional[models.User] = Depends(get_current_user_optional)
+):
+    artist = db.query(models.User).filter(models.User.username == username).first()
+    if not artist:
+        raise HTTPException(status_code=404, detail="User not found")
+
+    followers_count = db.query(models.Follow).filter(models.Follow.followed_id == artist.id).count()
+    following_count = db.query(models.Follow).filter(models.Follow.follower_id == artist.id).count()
+    
+    is_followed = False
+    if current_user:
+        follow_record = db.query(models.Follow).filter(
+            models.Follow.follower_id == current_user.id,
+            models.Follow.followed_id == artist.id
+        ).first()
+        is_followed = follow_record is not None
+
+    return {
+        "id": artist.id,
+        "username": artist.username,
+        "created_at": artist.created_at,
+        "followers_count": followers_count,
+        "following_count": following_count,
+        "is_followed_by_me": is_followed
+    }
+
+@app.get("/users/{username}/artworks", response_model=list[schemas.ArtworkResponse])
+def get_user_artworks(username: str, db: Session = Depends(get_db)):
+    artist = db.query(models.User).filter(models.User.username == username).first()
+    if not artist:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    artworks = db.query(models.Artwork).filter(models.Artwork.user_id == artist.id).order_by(models.Artwork.id.desc()).all()
+    return [serialize_artwork(a) for a in artworks]
+
+@app.post("/users/{username}/follow")
+def toggle_follow(
+    username: str, 
+    db: Session = Depends(get_db),
+    current_user: models.User = Depends(get_current_user)
+):
+    artist = db.query(models.User).filter(models.User.username == username).first()
+    if not artist:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if artist.id == current_user.id:
+        raise HTTPException(status_code=400, detail="You cannot follow yourself")
+        
+    existing_follow = db.query(models.Follow).filter(
+        models.Follow.follower_id == current_user.id,
+        models.Follow.followed_id == artist.id
+    ).first()
+    
+    if existing_follow:
+        # Unfollow
+        db.delete(existing_follow)
+        db.commit()
+        return {"followed": False, "message": f"You unfollowed {username}"}
+    else:
+        # Follow
+        new_follow = models.Follow(follower_id=current_user.id, followed_id=artist.id)
+        db.add(new_follow)
+        db.commit()
+        return {"followed": True, "message": f"You are now following {username}"}

@@ -142,7 +142,10 @@ export default function ArtworkDetailPage() {
                             <h1 className="text-3xl font-bold text-white mb-2">{artwork.title}</h1>
                             <div className="flex items-center gap-4 text-sm text-gray-400">
                                 <span>
-                                    by <span className="text-white font-medium">{artwork.username}</span>
+                                    by{" "}
+                                    <Link href={`/artist/${artwork.username}`} className="text-white font-medium hover:text-blue-400 hover:underline transition-colors">
+                                        {artwork.username}
+                                    </Link>
                                 </span>
                                 <span className="inline-block bg-blue-600 text-xs font-bold px-2.5 py-1 rounded text-white">
                                     {artwork.ai_model}
