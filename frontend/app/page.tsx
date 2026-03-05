@@ -26,7 +26,7 @@ export default function Home() {
   useEffect(() => {
     const fetchGallery = async () => {
       try {
-        const response = await fetch("http://127.0.0.1:8000/artworks/");
+        const response = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/artworks/`);
         if (!response.ok) throw new Error("Failed to fetch artworks");
 
         const data = await response.json();
