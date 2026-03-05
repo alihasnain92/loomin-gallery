@@ -11,7 +11,7 @@ class User(Base):
     username: Mapped[str] = mapped_column(String, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     password_hash: Mapped[str] = mapped_column(String)
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(datetime.UTC))
 
     # A user can have many artworks
     artworks: Mapped[List["Artwork"]] = relationship(back_populates="owner", cascade="all, delete-orphan")
@@ -25,7 +25,7 @@ class Artwork(Base):
     image_url: Mapped[str] = mapped_column(String)
     title: Mapped[str] = mapped_column(String)
     ai_model: Mapped[str] = mapped_column(String) # e.g., "Midjourney" or "Gemini"
-    created_at: Mapped[datetime.datetime] = mapped_column(DateTime, default=datetime.datetime.utcnow)
+    created_at = Column(DateTime, default=lambda: datetime.now(datetime.UTC))
 
     # Links back to the User
     owner: Mapped["User"] = relationship(back_populates="artworks")
